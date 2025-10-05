@@ -1,10 +1,13 @@
 import React, { useState } from "react";
 import "../styles/components.css";
+import ImageModal from "./ImageModal"; // You need to create this component as described
 
 export default function SearchBar({ placeholder }) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [modalImageUrl, setModalImageUrl] = useState("");
 
   const handleSearch = async (e) => {
     e.preventDefault();
@@ -23,10 +26,14 @@ export default function SearchBar({ placeholder }) {
     }
   };
 
-  // This will be used for user flow improvement in the next step
   const handleClear = () => {
     setQuery("");
     setResults([]);
+  };
+
+  const handleImageClick = (url) => {
+    setModalImageUrl(url);
+    setModalOpen(true);
   };
 
   return (
@@ -59,7 +66,12 @@ export default function SearchBar({ placeholder }) {
         <div className="results-background">
           <div className="image-grid">
             {results.map((item) => (
-              <div key={item.nasa_id} className="image-card">
+              <div
+                key={item.nasa_id}
+                className="image-card"
+                onClick={() => handleImageClick(item.image_url || item.thumbnail_url)}
+                style={{ cursor: "zoom-in" }}
+              >
                 <img
                   src={item.thumbnail_url || item.image_url}
                   alt={item.title}
@@ -78,6 +90,12 @@ export default function SearchBar({ placeholder }) {
           </div>
         </div>
       )}
+
+      <ImageModal
+        isOpen={modalOpen}
+        onRequestClose={() => setModalOpen(false)}
+        imageUrl={modalImageUrl}
+      />
     </div>
   );
 }
