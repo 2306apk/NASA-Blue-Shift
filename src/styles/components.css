@@ -1,4 +1,6 @@
 /* Remove default margin and padding, ensure full viewport with no scroll */
+
+
 *,
 *::before,
 *::after {
@@ -119,6 +121,178 @@ html, body, #root {
   animation: blink 3s infinite alternate;
   z-index: 0;
   pointer-events: none;
+}
+
+.search-container {
+  width: 80%;
+  margin: 0 auto;
+  text-align: center;
+}
+
+.search-input {
+  padding: 8px;
+  width: 60%;
+  max-width: 400px;
+  border: 1px solid #fff;
+  background: transparent;
+  color: #fff;
+}
+
+.search-button {
+  padding: 8px 16px;
+  margin-left: 8px;
+  border: 1px solid #fff;
+  background: transparent;
+  color: #fff;
+  cursor: pointer;
+}
+
+.loading-text {
+  color: #fff;
+  margin: 16px 0;
+}
+
+.image-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 16px;
+  margin-top: 24px;
+}
+
+.image-card {
+  background: rgba(255, 255, 255, 0.1);
+  padding: 8px;
+  border-radius: 4px;
+  color: #fff;
+}
+
+.grid-image {
+  width: 100%;
+  height: auto;
+  display: block;
+  border-radius: 4px;
+}
+
+.image-info {
+  text-align: left;
+  margin-top: 8px;
+}
+
+.results-background {
+  background: #181820;
+  border-radius: 18px;
+  width: 85vw;
+  max-width: 1200px;
+  min-width: 600px;
+  margin: 30px auto 30px 40px; /* top auto bottom left — shifts container left */
+  padding: 24px 16px;
+  box-sizing: border-box;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+/* This ensures the results section stays left-aligned on all devices */
+.main-container, 
+.results-wrapper {
+  display: flex;
+  justify-content: flex-start !important;
+  align-items: flex-start;
+  width: 100%;
+}
+
+.image-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 24px;
+}
+
+.image-card {
+  background: #23232d;
+  border-radius: 8px;
+  padding: 10px;
+  color: #eee;
+  box-shadow: 0 2px 8px #0004;
+  transition: box-shadow 0.2s;
+}
+
+.image-card:hover {
+  box-shadow: 0 4px 16px #0006;
+  cursor: pointer;
+}
+
+.grid-image {
+  width: 100%;
+  height: auto;
+  border-radius: 7px;
+  box-shadow: 0 1px 6px #0006;
+}
+
+.results-background {
+  background: #181820;
+  border-radius: 18px;
+  width: 85vw;
+  max-width: none;       /* REMOVE max-width if you want full width! */
+  min-width: 0;
+  margin: 30px 0 30px 0;
+  padding: 24px 16px;
+  box-sizing: border-box;
+  max-height: 80vh;
+  overflow-y: auto;
+  position: static;
+  float: none;
+}
+
+
+
+.image-grid {
+  display: flex;
+  flex-direction: column; /* vertical stack of cards */
+  gap: 20px;
+}
+
+.image-card {
+  background: #23232d;
+  border-radius: 8px;
+  padding: 20px;
+  display: flex; /* side by side layout */
+  color: #eee;
+  box-shadow: 0 2px 8px #0004;
+  transition: box-shadow 0.2s;
+  max-width: 1200px;
+  margin: 0 auto; /* center horizontally */
+}
+
+.image-card:hover {
+  box-shadow: 0 4px 16px #0006;
+  cursor: pointer;
+}
+
+.grid-image {
+  width: 320px; /* fixed width for image */
+  height: auto;
+  border-radius: 7px;
+  margin-right: 24px;
+  box-shadow: 0 1px 6px #0006;
+  flex-shrink: 0; /* no shrinking */
+}
+
+.image-info {
+  flex: 1; /* take remaining horizontal space */
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.image-info h4 {
+  margin: 0 0 8px 0;
+  font-size: 1.2rem;
+}
+
+.image-info p {
+  margin: 0;
+  line-height: 1.4; 
+  font-size: 0.9rem;
+  color: #ccc;
 }
 
 

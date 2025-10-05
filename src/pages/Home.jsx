@@ -12,9 +12,10 @@ const Home = () => (
         <span className="nav-item">earth</span>
       </div>
     </nav>
-    <div className="center-container">
-      <SearchBar placeholder="Search stars or constellations..." />
-    </div>
+  <div style={{ width: "100%" }}>
+    <SearchBar placeholder="Search stars or constellations..." /> 
+  </div>  
+
   </div>
 );
 
