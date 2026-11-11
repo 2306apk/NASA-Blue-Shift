@@ -3,9 +3,29 @@ import os
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-SECRET_KEY = 'django-insecure-nasa-hackathon-key-change-in-production'
-DEBUG = True
-ALLOWED_HOSTS = []
+# Optionally load environment variables from .env if present
+env_file = BASE_DIR / '.env'
+if not env_file.exists():
+    env_file = BASE_DIR.parent / '.env'
+if env_file.exists():
+    try:
+        with open(env_file) as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith('#') and '=' in line:
+                    key, val = line.split('=', 1)
+                    key = key.strip()
+                    val = val.strip().strip("'\"")
+                    if key not in os.environ:
+                        os.environ[key] = val
+    except Exception:
+        pass
+
+SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'django-insecure-nasa-hackathon-key-change-in-production')
+DEBUG = os.environ.get('DEBUG', 'True').lower() in ('true', '1', 'yes')
+ALLOWED_HOSTS = ['*'] if DEBUG else [
+    h.strip() for h in os.environ.get('DJANGO_ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',') if h.strip()
+]
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -83,8 +103,11 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 CORS_ALLOW_ALL_ORIGINS = True
 
 # NASA API settings
-NASA_API_KEY = 'rD8IvJFwMDcjtu2a9Qu1Zf9hhBPSoEuhniMPUyUv'
-NASA_BASE_URL = 'https://api.nasa.gov'
+NASA_API_KEY = os.environ.get('NASA_API_KEY', 'DEMO_KEY')
+NASA_BASE_URL = os.environ.get('NASA_BASE_URL', 'https://api.nasa.gov')
+
+# OpenAI API settings (optional for image analysis)
+OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY', '')
 
 # File storage for images and tiles
 MEDIA_URL = '/media/'

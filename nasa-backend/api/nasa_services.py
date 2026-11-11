@@ -4,9 +4,62 @@ from datetime import datetime
 from .models import NASASearchResult, SearchQuery
 
 class NASADataFetcher:
+    """
+    Handles fetching data from various NASA APIs
+    """
     def __init__(self):
         self.api_key = getattr(settings, 'NASA_API_KEY', 'DEMO_KEY')
-        self.base_url = 'https://api.nasa.gov'
+        self.base_url = getattr(settings, 'NASA_BASE_URL', 'https://api.nasa.gov')
+
+    def fetch_apod(self, date=None):
+        """
+        Fetch NASA's Astronomy Picture of the Day
+        """
+        url = f"{self.base_url}/planetary/apod"
+        params = {'api_key': self.api_key}
+        if date:
+            params['date'] = date
+
+        try:
+            response = requests.get(url, params=params, timeout=8)
+            if response.status_code == 200:
+                return response.json()
+            # If no date was specified and today's image is unavailable, fall back to a recent verified date
+            if not date and response.status_code >= 400:
+                fallback_resp = requests.get(
+                    url, params={'api_key': self.api_key, 'date': '2024-10-01'}, timeout=8
+                )
+                if fallback_resp.status_code == 200:
+                    return fallback_resp.json()
+            return None
+        except Exception as e:
+            print(f"Error fetching APOD: {e}")
+            if not date:
+                try:
+                    fallback_resp = requests.get(
+                        url, params={'api_key': self.api_key, 'date': '2024-10-01'}, timeout=8
+                    )
+                    if fallback_resp.status_code == 200:
+                        return fallback_resp.json()
+                except Exception:
+                    pass
+            return None
+
+    def fetch_mars_weather(self):
+        """
+        Fetch Mars weather data (insight)
+        """
+        url = f"{self.base_url}/insight_weather/"
+        params = {'api_key': self.api_key, 'feedtype': 'json', 'ver': '1.0'}
+
+        try:
+            response = requests.get(url, params=params, timeout=10)
+            if response.status_code == 200:
+                return response.json()
+            return None
+        except Exception as e:
+            print(f"Error fetching Mars weather: {e}")
+            return None
 
 class NASAImageSearchService:
     def __init__(self):
@@ -41,15 +94,23 @@ class NASAImageSearchService:
                 data = response.json()
                 photos = data.get('latest_photos', [])[:per_rover]
                 for p in photos:
+                    date_val = None
+                    if p.get('earth_date'):
+                        try:
+                            date_val = datetime.fromisoformat(p['earth_date'] + 'T00:00:00+00:00')
+                        except Exception:
+                            date_val = None
+                    camera_full = p.get('camera', {}).get('full_name', 'Camera')
+                    camera_short = p.get('camera', {}).get('name', 'camera').lower()
                     img = {
-                        'nasa_id': f"mars-{rover}-{p['id']}",
-                        'title': f"Mars {rover.title()} - {p['camera']['full_name']}",
-                        'description': f"Photo taken on Earth date {p['earth_date']}",
-                        'keywords': ['mars', rover, p['camera']['name'].lower()],
-                        'image_url': p['img_src'],
-                        'thumbnail_url': p['img_src'],
+                        'nasa_id': f"mars-{rover}-{p.get('id')}",
+                        'title': f"Mars {rover.title()} - {camera_full}",
+                        'description': f"Photo taken on Earth date {p.get('earth_date', 'Unknown')}",
+                        'keywords': ['mars', rover, camera_short],
+                        'image_url': p.get('img_src', ''),
+                        'thumbnail_url': p.get('img_src', ''),
                         'center': 'JPL',
-                        'date_created': datetime.fromisoformat(p['earth_date'] + 'T00:00:00+00:00'),
+                        'date_created': date_val,
                         'media_type': 'image',
                     }
                     results.append(img)
@@ -111,7 +172,11 @@ class NASAImageSearchService:
         if kws:
             params['keywords'] = kws
         try:
-            resp = requests.get(url, params=params, timeout=15).json()
+            response = requests.get(url, params=params, timeout=15)
+            if response.status_code != 200:
+                print(f"NASA API returned HTTP {response.status_code}")
+                return []
+            resp = response.json()
             results = []
             for item in resp.get('collection', {}).get('items', []):
                 if len(results) >= limit:

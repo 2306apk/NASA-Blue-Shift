@@ -27,6 +27,9 @@ class Dataset(models.Model):
     
     created_at = models.DateTimeField(auto_now_add=True)
 
+    class Meta:
+        ordering = ['id']
+
     def __str__(self):
         return self.title
 
@@ -42,6 +45,9 @@ class Annotation(models.Model):
     zoom = models.IntegerField(default=0)  # Zoom level where annotation was made
     note = models.TextField(blank=True)  # User's description
     created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
 
     def __str__(self):
         return f"{self.feature_name} on {self.dataset.title}"
@@ -82,6 +88,9 @@ class SearchResult(models.Model):
     date_created = models.DateTimeField(null=True, blank=True)
     keywords = models.JSONField(default=list)
     created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['id']
 
     def __str__(self):
         return self.title

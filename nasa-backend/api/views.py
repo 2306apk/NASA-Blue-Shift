@@ -4,45 +4,90 @@ from django.http import FileResponse, Http404, JsonResponse
 from rest_framework import viewsets, status
 from rest_framework.decorators import action, api_view
 from rest_framework.response import Response
-from .models import Dataset, Annotation, ImageMetadata, TileCache
-from .serializers import DatasetSerializer, AnnotationSerializer, ImageMetadataSerializer, TileCacheSerializer
-from .nasa_services import NASADataFetcher
+from .models import Dataset, Annotation, ImageMetadata, TileCache, NASASearchResult, SearchQuery
+from .serializers import (
+    DatasetSerializer,
+    AnnotationSerializer,
+    ImageMetadataSerializer,
+    TileCacheSerializer,
+)
+from .nasa_services import NASADataFetcher, NASAImageSearchService
 
 
 @api_view(['GET'])
 def search_nasa_images(request):
     """
     Search NASA images by keyword
-    GET /api/search/images/?q=mercury&limit=20
+    GET /api/search/nasa/?q=saturn&limit=20
     """
     query = request.GET.get('q', '').strip()
-    limit = int(request.GET.get('limit', 20))
-    
+    try:
+        limit = min(max(int(request.GET.get('limit', 20)), 1), 50)  # Between 1 and 50 results
+    except (TypeError, ValueError):
+        limit = 20
+
     if not query:
-        return Response({'error': 'Query parameter required'}, status=400)
-    
-    # Search service
+        return Response(
+            {'error': 'Query parameter "q" is required'},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    if len(query) < 2:
+        return Response(
+            {'error': 'Query must be at least 2 characters'},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
     search_service = NASAImageSearchService()
-    results = search_service.search_images(query, limit)
-    
-    return Response({
-        'query': query,
-        'count': len(results),
-        'results': results
-    })
+    try:
+        results = search_service.search_images(query, limit)
+        return Response({
+            'query': query,
+            'count': len(results),
+            'results': results,
+        })
+    except Exception as e:
+        return Response(
+            {'error': f'Failed to retrieve NASA images: {str(e)}'},
+            status=status.HTTP_502_BAD_GATEWAY,
+        )
+
 
 @api_view(['GET'])
-def get_image_details(request, nasa_id):
+def get_nasa_image_details(request, nasa_id):
     """
     Get detailed information about a specific NASA image
-    GET /api/images/{nasa_id}/
+    GET /api/nasa/image/{nasa_id}/
     """
     try:
-        result = SearchResult.objects.get(nasa_id=nasa_id)
-        serializer = SearchResultSerializer(result)
-        return Response(serializer.data)
-    except SearchResult.DoesNotExist:
-        return Response({'error': 'Image not found'}, status=404)
+        result = NASASearchResult.objects.get(nasa_id=nasa_id)
+        search_service = NASAImageSearchService()
+        data = search_service.result_to_dict(result)
+        return Response(data)
+    except NASASearchResult.DoesNotExist:
+        return Response(
+            {'error': f'Image "{nasa_id}" not found'},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+
+
+@api_view(['GET'])
+def get_popular_searches(request):
+    """
+    Get most popular search terms
+    GET /api/search/popular/
+    """
+    popular = SearchQuery.objects.order_by('-search_count')[:10]
+    return Response({
+        'popular_searches': [
+            {
+                'query': sq.query,
+                'count': sq.search_count,
+                'last_searched': sq.last_searched,
+            }
+            for sq in popular
+        ]
+    })
 
 
 class DatasetViewSet(viewsets.ReadOnlyModelViewSet):
@@ -53,7 +98,7 @@ class DatasetViewSet(viewsets.ReadOnlyModelViewSet):
     """
     queryset = Dataset.objects.all()
     serializer_class = DatasetSerializer
-    lookup_field = "slug"  # Use slug instead of ID in URLs
+    lookup_field = 'slug'
 
     @action(detail=True, methods=['get'])
     def info(self, request, slug=None):
@@ -61,24 +106,27 @@ class DatasetViewSet(viewsets.ReadOnlyModelViewSet):
         dataset = self.get_object()
         return Response(self.get_serializer(dataset).data)
 
+
 class AnnotationViewSet(viewsets.ModelViewSet):
     """
     Full CRUD API for user annotations
-    GET /api/annotations/ - List annotations
+    GET /api/annotations/ - List annotations (filter ?dataset=slug)
     POST /api/annotations/ - Create new annotation
+    GET /api/annotations/{id}/ - Retrieve annotation
     PUT /api/annotations/{id}/ - Update annotation
     DELETE /api/annotations/{id}/ - Delete annotation
     """
     queryset = Annotation.objects.all().select_related('dataset')
     serializer_class = AnnotationSerializer
-    
+
     def get_queryset(self):
-        """Filter annotations by dataset if specified"""
+        """Filter annotations by dataset slug if specified"""
         queryset = super().get_queryset()
-        dataset = self.request.query_params.get('dataset')
-        if dataset:
-            queryset = queryset.filter(dataset__slug=dataset)
+        dataset_slug = self.request.query_params.get('dataset')
+        if dataset_slug:
+            queryset = queryset.filter(dataset__slug=dataset_slug)
         return queryset
+
 
 class ImageMetadataViewSet(viewsets.ReadOnlyModelViewSet):
     """
@@ -88,28 +136,33 @@ class ImageMetadataViewSet(viewsets.ReadOnlyModelViewSet):
     """
     queryset = ImageMetadata.objects.all()
     serializer_class = ImageMetadataSerializer
-    
+
     def get_queryset(self):
         """Filter by dataset if specified"""
         queryset = super().get_queryset()
-        dataset = self.request.query_params.get('dataset')
-        if dataset:
-            queryset = queryset.filter(dataset__slug=dataset)
+        dataset_slug = self.request.query_params.get('dataset')
+        if dataset_slug:
+            queryset = queryset.filter(dataset__slug=dataset_slug)
         return queryset
+
 
 @api_view(['GET'])
 def nasa_apod(request):
     """
     Get NASA's Astronomy Picture of the Day
     GET /api/nasa/apod/ - Today's picture
-    GET /api/nasa/apod/?date=2023-10-01 - Specific date
+    GET /api/nasa/apod/?date=YYYY-MM-DD - Specific date
     """
     date = request.GET.get('date', None)
     fetcher = NASADataFetcher()
     data = fetcher.fetch_apod(date)
     if data:
         return Response(data)
-    return Response({'error': 'Failed to fetch APOD data'}, status=400)
+    return Response(
+        {'error': 'Failed to fetch APOD data from NASA API'},
+        status=status.HTTP_502_BAD_GATEWAY,
+    )
+
 
 @api_view(['GET'])
 def search_features(request):
@@ -119,100 +172,33 @@ def search_features(request):
     """
     q = request.GET.get('q', '').strip()
     if not q:
-        return Response({"results": []})
-    
+        return Response({'results': []})
+
     annotations = Annotation.objects.filter(feature_name__icontains=q)[:50]
     serializer = AnnotationSerializer(annotations, many=True)
-    return Response({"results": serializer.data})
+    return Response({'results': serializer.data})
+
 
 def get_tile(request, dataset, z, x, y, ext):
     """
-    Serve map tiles for frontend display
+    Serve map tiles for deep zoom/map visualization
     GET /tiles/{dataset}/{z}/{x}/{y}.png - Get specific tile
     """
-    # Sanitize dataset slug to prevent directory traversal
     ds_slug = os.path.basename(dataset)
     base_tiles_dir = os.path.join(settings.TILES_ROOT, ds_slug)
-    
     tile_path = os.path.join(base_tiles_dir, str(z), str(x), f"{y}.{ext}")
-    
-    # Try alternative file extension if requested one doesn't exist
+
     if not os.path.exists(tile_path):
         alt_ext = 'png' if ext.lower() == 'jpg' else 'jpg'
         alt_path = os.path.join(base_tiles_dir, str(z), str(x), f"{y}.{alt_ext}")
         if os.path.exists(alt_path):
             tile_path = alt_path
-    
+
     if os.path.exists(tile_path):
-        content_type = "image/png" if tile_path.endswith('.png') else "image/jpeg"
-        return FileResponse(open(tile_path, 'rb'), content_type=content_type)
-    
+        try:
+            content_type = "image/png" if tile_path.endswith('.png') else "image/jpeg"
+            return FileResponse(open(tile_path, 'rb'), content_type=content_type)
+        except OSError:
+            raise Http404("Tile unreadable")
+
     raise Http404("Tile not found")
-
-
-from .nasa_services import NASAImageSearchService
-from .models import NASASearchResult
-
-@api_view(['GET'])
-def search_nasa_images(request):
-    """
-    Search NASA images by keyword
-    GET /api/search/nasa/?q=mercury&limit=20
-    """
-    query = request.GET.get('q', '').strip()
-    limit = min(int(request.GET.get('limit', 20)), 50)  # Max 50 results
-    
-    if not query:
-        return Response({
-            'error': 'Query parameter "q" is required'
-        }, status=status.HTTP_400_BAD_REQUEST)
-    
-    if len(query) < 2:
-        return Response({
-            'error': 'Query must be at least 2 characters'
-        }, status=status.HTTP_400_BAD_REQUEST)
-    
-    # Use our NASA search service
-    search_service = NASAImageSearchService()
-    results = search_service.search_images(query, limit)
-    
-    return Response({
-        'query': query,
-        'count': len(results),
-        'results': results
-    })
-
-@api_view(['GET'])
-def get_nasa_image_details(request, nasa_id):
-    """
-    Get detailed info about a specific NASA image
-    GET /api/nasa/image/{nasa_id}/
-    """
-    try:
-        result = NASASearchResult.objects.get(nasa_id=nasa_id)
-        search_service = NASAImageSearchService()
-        data = search_service.result_to_dict(result)
-        return Response(data)
-    except NASASearchResult.DoesNotExist:
-        return Response({
-            'error': 'Image not found'
-        }, status=status.HTTP_404_NOT_FOUND)
-
-@api_view(['GET'])
-def get_popular_searches(request):
-    """
-    Get most popular search terms
-    GET /api/search/popular/
-    """
-    from .models import SearchQuery
-    popular = SearchQuery.objects.order_by('-search_count')[:10]
-    
-    return Response({
-        'popular_searches': [
-            {
-                'query': sq.query,
-                'count': sq.search_count,
-                'last_searched': sq.last_searched
-            } for sq in popular
-        ]
-    })

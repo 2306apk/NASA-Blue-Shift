@@ -145,6 +145,84 @@ html, body, #root {
   background: transparent;
   color: #fff;
   cursor: pointer;
+  transition: all 0.2s;
+}
+
+.search-button:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.popular-chips {
+  margin-top: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+}
+
+.chip {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 14px;
+  color: #ccc;
+  font-family: inherit;
+  font-size: 0.8rem;
+  padding: 4px 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.chip:hover {
+  background: rgba(255, 255, 255, 0.2);
+  color: #fff;
+  border-color: #61dafb;
+}
+
+.error-banner {
+  margin: 16px auto;
+  max-width: 600px;
+  background: rgba(220, 53, 69, 0.2);
+  border: 1px solid #dc3545;
+  border-radius: 6px;
+  color: #ff8080;
+  padding: 12px 16px;
+  font-size: 0.9rem;
+}
+
+.empty-state {
+  margin: 24px auto;
+  max-width: 600px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px dashed rgba(255, 255, 255, 0.2);
+  border-radius: 6px;
+  padding: 20px;
+  color: #aaa;
+}
+
+.empty-state p {
+  margin: 6px 0;
+}
+
+.card-meta {
+  display: flex;
+  gap: 10px;
+  font-size: 0.75rem;
+  color: #61dafb;
+  margin-bottom: 6px;
+}
+
+.nav-item {
+  transition: color 0.2s, text-shadow 0.2s;
+}
+
+.nav-item:hover {
+  color: #61dafb;
+}
+
+.nav-item.active {
+  color: #61dafb;
+  font-weight: bold;
+  text-shadow: 0 0 8px rgba(97, 218, 251, 0.6);
 }
 
 .loading-text {
